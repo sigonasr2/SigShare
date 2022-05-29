@@ -12,13 +12,11 @@ import java.util.List;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
-import sig.JavaProjectTemplate;
+import sig.SigShare;
 
 public class Panel extends JPanel implements Runnable {
 	JFrame window;
     public int pixel[];
-    public int width=1280;
-    public int height=720; 
     final int CIRCLE_PRECISION=32;
 	final int OUTLINE_COL=Color.BRIGHT_WHITE.getColor();
     private Thread thread;
@@ -55,14 +53,14 @@ public class Panel extends JPanel implements Runnable {
      */
     public void init(){        
         cm = getCompatibleColorModel();
-        int screenSize = width * height;
+        int screenSize = getWidth() * getHeight();
         if(pixel == null || pixel.length < screenSize){
             pixel = new int[screenSize];
         }        
         if(thread.isInterrupted() || !thread.isAlive()){
             thread.start();
         }
-        mImageProducer =  new MemoryImageSource(width, height, cm, pixel,0, width);
+        mImageProducer =  new MemoryImageSource(getWidth(), getHeight(), cm, pixel,0, getWidth());
         mImageProducer.setAnimated(true);
         mImageProducer.setFullBufferUpdates(true);  
         imageBuffer = Toolkit.getDefaultToolkit().createImage(mImageProducer);        
@@ -80,7 +78,7 @@ public class Panel extends JPanel implements Runnable {
 		
 		
 		if (window!=null&&System.currentTimeMillis()-lastSecond>=1000) {
-			window.setTitle(JavaProjectTemplate.PROGRAM_NAME+" - FPS: "+(frameCount-lastFrameCount));
+			window.setTitle(SigShare.PROGRAM_NAME+" - FPS: "+(frameCount-lastFrameCount));
 			lastFrameCount=frameCount;
 			lastSecond=System.currentTimeMillis();
 		}
@@ -103,44 +101,12 @@ public class Panel extends JPanel implements Runnable {
         int[] p = pixel; // this avoid crash when resizing
         //a=h/w
         
-        for (int x=0;x<width;x++) {
-        	for (int y=0;y<height;y++) {
-        		p[y*width+x]=(0<<16)+(0<<8)+0;
-        	}
-        }
-        
-        x_offset+=1;
-        y_offset=50;
-        
-        FillPolygon(p,Color.WHITE,50,50,new Point[] {
-        		new Point(135,2),
-        		new Point(166,96),
-        		new Point(265,97),
-        		new Point(185,156),
-        		new Point(215,251),
-        		new Point(134,192),
-        		new Point(54,251),
-        		new Point(84,156),
-        		new Point(4,97),
-        		new Point(103,96),
-        });
-        FillPolygon(p,Color.BRIGHT_CYAN,x_offset,y_offset,new Point[] {
-            	new Point(28,29),
-            	new Point(78,103),
-            	new Point(120,31),
-            	new Point(123,221),
-            	new Point(30,218),
-            });
-        //FillRect(p,Color.BRIGHT_RED,200,200,600,64);
-		final Color testAlpha = new Color(150,0,0,128);
-        FillCircle(p,testAlpha,150,150,100);
-        FillOval(p,Color.BRIGHT_GREEN,300,150,100,50);
     }
     
     public void FillRect(int[] p,Color col,double x,double y,double w,double h) {
     	for (int xx=0;xx<w;xx++) {
         	for (int yy=0;yy<h;yy++) {
-        		int index = ((int)y+yy)*width+(int)x+xx;
+        		int index = ((int)y+yy)*getWidth()+(int)x+xx;
         		p[index]=col.getColor();
         	}	
     	}
@@ -213,7 +179,7 @@ public class Panel extends JPanel implements Runnable {
     			Edge e2 = active_edges.get(i+1);
 				//System.out.println("Drawing from "+((int)Math.round(e1.x_of_min_y))+" to "+e2.x_of_min_y+" on line "+scanLine);
     			for (int x=(int)Math.round(e1.x_of_min_y);x<=e2.x_of_min_y;x++) {
-    				int index = (scanLine+(int)y_offset)*width+x+(int)x_offset;
+    				int index = (scanLine+(int)y_offset)*getWidth()+x+(int)x_offset;
     				if (index<p.length&&index>=0) {
 						Draw(p,index,col.getColor());
 					}
@@ -308,7 +274,7 @@ public class Panel extends JPanel implements Runnable {
             // request a JPanel re-drawing
             repaint();       
             //System.out.println("Repaint "+frameCount++);
-            //try {Thread.sleep(1);} catch (InterruptedException e) {}
+            try {Thread.sleep(16);} catch (InterruptedException e) {}
         }
 	}
 }
