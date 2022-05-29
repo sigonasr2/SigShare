@@ -16,7 +16,9 @@ import sig.SigShare;
 
 public class Panel extends JPanel implements Runnable {
 	JFrame window;
-    public int pixel[];
+    public static int pixel[];
+	int SCREEN_WIDTH=0;
+	int SCREEN_HEIGHT=0;
     final int CIRCLE_PRECISION=32;
 	final int OUTLINE_COL=Color.BRIGHT_WHITE.getColor();
     private Thread thread;
@@ -51,16 +53,18 @@ public class Panel extends JPanel implements Runnable {
     /**
      * Call it after been visible and after resizes.
      */
-    public void init(){        
+    public void init(int width,int height){        
+		this.SCREEN_WIDTH=width;
+		this.SCREEN_HEIGHT=height;
         cm = getCompatibleColorModel();
-        int screenSize = getWidth() * getHeight();
+        int screenSize = SCREEN_WIDTH * SCREEN_HEIGHT;
         if(pixel == null || pixel.length < screenSize){
             pixel = new int[screenSize];
         }        
         if(thread.isInterrupted() || !thread.isAlive()){
             thread.start();
         }
-        mImageProducer =  new MemoryImageSource(getWidth(), getHeight(), cm, pixel,0, getWidth());
+        mImageProducer =  new MemoryImageSource(SCREEN_WIDTH, SCREEN_HEIGHT, cm, pixel,0, SCREEN_WIDTH);
         mImageProducer.setAnimated(true);
         mImageProducer.setFullBufferUpdates(true);  
         imageBuffer = Toolkit.getDefaultToolkit().createImage(mImageProducer);        
@@ -106,7 +110,7 @@ public class Panel extends JPanel implements Runnable {
     public void FillRect(int[] p,Color col,double x,double y,double w,double h) {
     	for (int xx=0;xx<w;xx++) {
         	for (int yy=0;yy<h;yy++) {
-        		int index = ((int)y+yy)*getWidth()+(int)x+xx;
+        		int index = ((int)y+yy)*SCREEN_WIDTH+(int)x+xx;
         		p[index]=col.getColor();
         	}	
     	}
@@ -179,7 +183,7 @@ public class Panel extends JPanel implements Runnable {
     			Edge e2 = active_edges.get(i+1);
 				//System.out.println("Drawing from "+((int)Math.round(e1.x_of_min_y))+" to "+e2.x_of_min_y+" on line "+scanLine);
     			for (int x=(int)Math.round(e1.x_of_min_y);x<=e2.x_of_min_y;x++) {
-    				int index = (scanLine+(int)y_offset)*getWidth()+x+(int)x_offset;
+    				int index = (scanLine+(int)y_offset)*SCREEN_WIDTH+x+(int)x_offset;
     				if (index<p.length&&index>=0) {
 						Draw(p,index,col.getColor());
 					}
