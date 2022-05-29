@@ -64,7 +64,7 @@ public class SigShare {
 								if (col!=pixels[y*SCREEN_WIDTH+x]) {
 									b1=(byte)(x&0xFF); //bits 1-8 for x
 									b2=(byte)(((x&0xF00)>>>8)+((y&0xF)<<4)); //bits 9-12 for x, bits 1-4 for y
-									b3=(byte)(y&0xFF0>>>4);//bits 5-12 for y
+									b3=(byte)((y>>>4)&0xFF);//bits 5-12 for y
 									pixels[y*SCREEN_WIDTH+x]=col;
 									int r = ((col&0x00FF0000)>>>16)/8;
 									int g = ((col&0x0000FF00)>>>8)/8;
@@ -74,7 +74,7 @@ public class SigShare {
 									clientOutput.writeByte(b1);
 									clientOutput.writeByte(b2);
 									clientOutput.writeByte(b3);
-									System.out.println("  Pixel ("+x+","+y+") "+b1+"/"+(b2&0xF)+"/"+(b2&0xF0)+"/"+b3+" sent");
+									System.out.println("  Pixel ("+x+","+y+") "+b1+"/"+(b2&0xF)+"/"+((b2&0xF0)>>>4)+"/"+b3+" sent");
 								}
 								//screen[y*SCREEN_WIDTH+x]=compressedCol;
 							}	
@@ -142,11 +142,11 @@ public class SigShare {
 								int convert = ((((col&0b0111110000000000)>>>10)*8)<<16)+
 								((((col&0b0000001111100000)*8)>>>5)<<8)+
 								((((col&0b0000000000011111))*8));
-								int b1=in.readUnsignedByte(),b2=in.readUnsignedByte(),b3=in.readUnsignedByte();
+								int b1=in.readUnsignedByte()&0xff,b2=in.readUnsignedByte()&0xff,b3=in.readUnsignedByte()&0xff;
 								int x = b1+((b2&0xF)<<8);
-								int y = (b3<<4)+(b2&0xF0);
+								int y = (b3<<4)+((b2&0xF0)>>>4);
+								System.out.println("  Pixel "+frame+++" ("+x+","+y+") "+b1+"/"+(b2&0xF)+"/"+((b2&0xF0)>>>4)+"/"+b3+" processed");
 								Panel.pixel[y*SCREEN_WIDTH+x]=convert;
-								System.out.println("  Pixel "+frame+++" ("+x+","+y+") "+b1+"/"+(b2&0xF)+"/"+(b2&0xF0)+"/"+b3+" processed");
 							}
 						}
 					 }
