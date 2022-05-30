@@ -286,6 +286,7 @@ public class SigShare {
 														}
 													}
 													out.writeChars("Done\r\n");
+													regionInfo=-1;
 													stream=new BufferedOutputStream(new FileOutputStream(new File("screenshot_out.jpg"),false));
 													break;
 												}
