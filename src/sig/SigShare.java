@@ -124,6 +124,7 @@ public class SigShare {
 								in.readLine();
 								LAST_CLEANUP=System.currentTimeMillis();
 							} else {
+							subupdate:
 							for (int y=0;y<newCapture.getHeight();y++) {
 								for (int x=0;x<newCapture.getWidth();x++) {
 									int currentPixel = img[y*newCapture.getWidth()+x];
@@ -131,6 +132,9 @@ public class SigShare {
 									int gridX = x/REGION_WIDTH;
 									int gridY = y/REGION_HEIGHT;
 									if (currentPixel!=newPixel) {
+										if (System.currentTimeMillis()-LAST_CLEANUP>=CLEANUP_FREQUENCY) {
+											break subupdate;
+										}
 										img[y*newCapture.getWidth()+x]=newPixel;
 										//System.out.println("Changes ("+gridX+","+gridY+"): "+changes[gridY*REGION_X_COUNT+gridX]);
 										if (!REGION_CHECK.containsKey((char)(gridY*REGION_X_COUNT+gridX))) {
@@ -144,7 +148,7 @@ public class SigShare {
 											if (gridX>0) {
 												changes[(gridY)*REGION_X_COUNT+(gridX-1)]+=1;
 											}
-											if (gridX<REGION_Y_COUNT-1) {
+											if (gridX<REGION_X_COUNT-1) {
 												changes[(gridY)*REGION_X_COUNT+(gridX+1)]+=1;
 											}
 											if (changes[gridY*REGION_X_COUNT+gridX]>=CHANGE_THRESHOLD) {
@@ -157,7 +161,7 @@ public class SigShare {
 												if (gridX>0) {
 													changes[(gridY)*REGION_X_COUNT+(gridX-1)]+=CHANGE_THRESHOLD/2;
 												}
-												if (gridX<REGION_Y_COUNT-1) {
+												if (gridX<REGION_X_COUNT-1) {
 													changes[(gridY)*REGION_X_COUNT+(gridX+1)]+=CHANGE_THRESHOLD/2;
 												}
 												performSubimageUpdate(in, clientOutput, newCapture, gridX, gridY);
