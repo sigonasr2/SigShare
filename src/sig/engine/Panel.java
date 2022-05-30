@@ -56,7 +56,7 @@ public class Panel extends JPanel implements Runnable {
 			@Override
 			public void componentResized(ComponentEvent e) {
 				System.out.println("Resized");
-				
+				setSize(getWidth(), getHeight());
 			}
 
 			@Override
@@ -107,7 +107,7 @@ public class Panel extends JPanel implements Runnable {
         // ask ImageProducer to update image
         mImageProducer.newPixels();  
         // draw it on panel          
-        g.drawImage(this.imageBuffer, 0, 0, this);  
+        g.drawImage(this.imageBuffer.getScaledInstance(getWidth(), getHeight(), Image.SCALE_FAST), 0, 0, this);  
 		
 		
 		if (window!=null&&System.currentTimeMillis()-lastSecond>=1000) {

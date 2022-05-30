@@ -37,6 +37,9 @@ import java.awt.Graphics2D;
 public class SigShare {
 	static Robot r;
 	public static final String PROGRAM_NAME="SigShare";
+	public static double SCREEN_MULT=2;
+	public static int SCREEN_WIDTH=(int)(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().getWidth()/SCREEN_MULT);
+	public static int SCREEN_HEIGHT=(int)(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().getHeight()/SCREEN_MULT);
 	public static void main(String[] args) throws AWTException {
 		r = new Robot();
 		if (args.length==2&&args[1].equalsIgnoreCase("server")) {
@@ -50,9 +53,6 @@ public class SigShare {
 					System.out.println("Sending initial data...");
 					BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream(),"ISO-8859-1"));
 					DataOutputStream clientOutput = new DataOutputStream(client.getOutputStream());
-					double SCREEN_MULT=2;
-					int SCREEN_WIDTH=(int)(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().getWidth()/SCREEN_MULT);
-					int SCREEN_HEIGHT=(int)(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().getHeight()/SCREEN_MULT);
 					clientOutput.write(("DESKTOP "+SCREEN_WIDTH+" "+SCREEN_HEIGHT+"\r\n").getBytes());
 					System.out.println("Send initial screen");
 					//char[] screen = new char[SCREEN_WIDTH*SCREEN_HEIGHT];
@@ -113,8 +113,8 @@ public class SigShare {
 					 if (line.contains("DESKTOP")) {
 						 String[] split = line.split(Pattern.quote(" "));
 						 
-						int SCREEN_WIDTH=Integer.parseInt(split[1]);
-						int SCREEN_HEIGHT=Integer.parseInt(split[2]);
+						SCREEN_WIDTH=Integer.parseInt(split[1]);
+						SCREEN_HEIGHT=Integer.parseInt(split[2]);
 						p.init(SCREEN_WIDTH,SCREEN_HEIGHT);
 						
 						f.add(p);
@@ -176,7 +176,7 @@ public class SigShare {
 		ImageWriter writer = iter.next();
 		ImageWriteParam iwp = writer.getDefaultWriteParam();
 		iwp.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-		iwp.setCompressionQuality(0.3f);
+		iwp.setCompressionQuality(0.8f);
 		writer.setOutput(ios);
 		writer.write(null, new IIOImage(resizeImage(r.createScreenCapture(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds()),w,h),null,null),iwp);
 		writer.dispose();
