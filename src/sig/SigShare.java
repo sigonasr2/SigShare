@@ -148,6 +148,18 @@ public class SigShare {
 												changes[(gridY)*REGION_X_COUNT+(gridX+1)]+=1;
 											}
 											if (changes[gridY*REGION_X_COUNT+gridX]>=CHANGE_THRESHOLD) {
+												if (gridY>0) {
+													changes[(gridY-1)*REGION_X_COUNT+gridX]+=CHANGE_THRESHOLD/2;
+												}
+												if (gridY<REGION_Y_COUNT-1) {
+													changes[(gridY+1)*REGION_X_COUNT+gridX]+=CHANGE_THRESHOLD/2;
+												}
+												if (gridX>0) {
+													changes[(gridY)*REGION_X_COUNT+(gridX-1)]+=CHANGE_THRESHOLD/2;
+												}
+												if (gridX<REGION_Y_COUNT-1) {
+													changes[(gridY)*REGION_X_COUNT+(gridX+1)]+=CHANGE_THRESHOLD/2;
+												}
 												performSubimageUpdate(in, clientOutput, newCapture, gridX, gridY);
 											}
 										}
