@@ -3,6 +3,7 @@ package sig;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -11,14 +12,17 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.regex.Pattern;
 
+import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 import java.awt.Toolkit;
 import sig.engine.Panel;
 
 import java.awt.AWTException;
 import java.awt.GraphicsEnvironment;
+import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.awt.Robot;
+import java.awt.Graphics2D;
 
 public class SigShare {
 	static Robot r;
@@ -35,13 +39,14 @@ public class SigShare {
 					System.out.println("Sending initial data...");
 					BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream(),"ISO-8859-1"));
 					DataOutputStream clientOutput = new DataOutputStream(client.getOutputStream());
-					int SCREEN_WIDTH=(int)GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().getWidth();
-					int SCREEN_HEIGHT=(int)GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().getHeight();
+					double SCREEN_MULT=2;
+					int SCREEN_WIDTH=(int)(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().getWidth()/SCREEN_MULT);
+					int SCREEN_HEIGHT=(int)(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().getHeight()/SCREEN_MULT);
 					int[] pixels = new int[SCREEN_WIDTH*SCREEN_HEIGHT];
 					clientOutput.write(("DESKTOP "+SCREEN_WIDTH+" "+SCREEN_HEIGHT+"\r\n").getBytes());
 					System.out.println("Send initial screen");
 					//char[] screen = new char[SCREEN_WIDTH*SCREEN_HEIGHT];
-					BufferedImage screenshot = CaptureScreen();
+					BufferedImage screenshot = CaptureScreen(SCREEN_WIDTH,SCREEN_HEIGHT);
 					for (int y=0;y<SCREEN_HEIGHT;y++) {
 						for (int x=0;x<SCREEN_WIDTH;x++) {
 							int col = pixels[y*SCREEN_WIDTH+x] = screenshot.getRGB(x, y);
@@ -56,7 +61,7 @@ public class SigShare {
 					System.out.println("Begin diff monitoring...");
 					int frame=0;
 					while (true) {
-						screenshot = CaptureScreen();
+						screenshot = CaptureScreen(SCREEN_WIDTH,SCREEN_HEIGHT);
 						for (int y=0;y<SCREEN_HEIGHT;y++) {
 							for (int x=0;x<SCREEN_WIDTH;x++) {
 								int col = screenshot.getRGB(x, y);
@@ -160,9 +165,27 @@ public class SigShare {
 			return;
 		}
 	}
-	private static BufferedImage CaptureScreen() throws IOException {
-		BufferedImage screenshot = r.createScreenCapture(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds());
-		//ImageIO.write(screenshot,"png",new File("screenshot.png"));
+	private static BufferedImage CaptureScreen(int w,int h) throws IOException {
+		BufferedImage screenshot = toBufferedImage(r.createScreenCapture(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds()).getScaledInstance(w, h, Image.SCALE_DEFAULT));
+		ImageIO.write(screenshot,"jpg",new File("/home/niconiconii/screenshot.jpg"));
 		return screenshot;
 	}
+	public static BufferedImage toBufferedImage(Image img)
+{
+    if (img instanceof BufferedImage)
+    {
+        return (BufferedImage) img;
+    }
+
+    // Create a buffered image with transparency
+    BufferedImage bimage = new BufferedImage(img.getWidth(null), img.getHeight(null), BufferedImage.TYPE_INT_ARGB);
+
+    // Draw the image on to the buffered image
+    Graphics2D bGr = bimage.createGraphics();
+    bGr.drawImage(img, 0, 0, null);
+    bGr.dispose();
+
+    // Return the buffered image
+    return bimage;
+}
 }
