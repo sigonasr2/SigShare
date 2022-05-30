@@ -1,20 +1,18 @@
 package sig;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.regex.Pattern;
 
@@ -24,7 +22,6 @@ import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
 import javax.swing.JFrame;
-import java.awt.Toolkit;
 import sig.engine.Panel;
 
 import java.awt.AWTException;
@@ -38,8 +35,18 @@ public class SigShare {
 	static Robot r;
 	public static final String PROGRAM_NAME="SigShare";
 	public static double SCREEN_MULT=2;
-	public static int SCREEN_WIDTH=(int)(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().getWidth()/SCREEN_MULT);
-	public static int SCREEN_HEIGHT=(int)(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().getHeight()/SCREEN_MULT);
+	public static int REGION_X_COUNT = 8;
+	public static int REGION_Y_COUNT = 8;
+	public static int SCREEN_WIDTH=((int)(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().getWidth()/SCREEN_MULT)/REGION_X_COUNT)*REGION_X_COUNT;
+	public static int SCREEN_HEIGHT=((int)(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().getHeight()/SCREEN_MULT)/REGION_Y_COUNT)*REGION_Y_COUNT;
+	public static int[] img = new int[SCREEN_WIDTH*SCREEN_HEIGHT]; //Store the number of changes in the last 8 bits of ints. Use 2 ints per section, meaning an 8x8 section uses 128 integers to store 64 values.
+	public static int CHANGE_THRESHOLD = 1000;
+	public static char[] changes = new char[REGION_X_COUNT*REGION_Y_COUNT];
+	public static int REGION_WIDTH = SCREEN_WIDTH/REGION_X_COUNT;
+	public static int REGION_HEIGHT = SCREEN_HEIGHT/REGION_Y_COUNT;
+	public static long LAST_CLEANUP = System.currentTimeMillis();
+	public static int CLEANUP_FREQUENCY = 2000;
+	public static HashMap<Character,Boolean> REGION_CHECK = new HashMap<>();
 	public static void main(String[] args) throws AWTException {
 		r = new Robot();
 		if (args.length==2&&args[1].equalsIgnoreCase("server")) {
@@ -68,21 +75,73 @@ public class SigShare {
 						}	
 					}*/
 					int frame=0;
+					CaptureScreen(SCREEN_WIDTH,SCREEN_HEIGHT);
+					FileInputStream stream = new FileInputStream(new File("screenshot.jpg"));
+					while (stream.available()>0) {
+						clientOutput.writeByte(stream.read());
+					}
+					stream.close();
+					BufferedImage image = ImageIO.read(new File("screenshot.jpg"));
+					for (int y=0;y<image.getHeight();y++) {
+						for (int x=0;x<image.getWidth();x++) {
+							img[y*image.getWidth()+x]=image.getRGB(x, y)&0x00FFFFFF;
+						}		
+					}
+					for (int i=0;i<10;i++) {
+						clientOutput.writeChar('-');
+					}
+					System.out.println("Frame "+frame+++" processed. Waiting on client.");
+					while (!in.ready()) {
+					}
+					System.out.println("Client no longer idle.");
+					in.readLine();
+					System.out.println("Begin diff analysis mode.");
 					while (true) {
-						CaptureScreen(SCREEN_WIDTH,SCREEN_HEIGHT);
-						FileInputStream stream = new FileInputStream(new File("screenshot.jpg"));
-						while (stream.available()>0) {
-							clientOutput.writeByte(stream.read());
+						boolean fullCleanup=false;
+						BufferedImage newCapture = CaptureScreen(SCREEN_WIDTH,SCREEN_HEIGHT);
+						REGION_CHECK.clear();
+						for (int y=0;y<newCapture.getHeight();y++) {
+							for (int x=0;x<newCapture.getWidth();x++) {
+								int currentPixel = img[y*newCapture.getWidth()+x];
+								int newPixel = newCapture.getRGB(x, y)&0x00FFFFFF;
+								int gridX = x/REGION_WIDTH;
+								int gridY = y/REGION_HEIGHT;
+								if (System.currentTimeMillis()-CLEANUP_FREQUENCY>=5000) {
+									if (!REGION_CHECK.containsKey((char)(gridY*REGION_X_COUNT+gridX))) {
+										performSubimageUpdate(in, clientOutput, newCapture, gridX, gridY);
+									}
+									fullCleanup=true;
+								} else
+								if (currentPixel!=newPixel) {
+									img[y*newCapture.getWidth()+x]=newPixel;
+									if (gridY*REGION_X_COUNT+gridX>=changes.length) {
+										System.out.println(gridY+"/"+REGION_X_COUNT+"/"+gridX+"  "+x+","+y);
+									}
+									//System.out.println("Changes ("+gridX+","+gridY+"): "+changes[gridY*REGION_X_COUNT+gridX]);
+									if (!REGION_CHECK.containsKey((char)(gridY*REGION_X_COUNT+gridX))) {
+										changes[gridY*REGION_X_COUNT+gridX]+=2;
+										if (gridY>0) {
+											changes[(gridY-1)*REGION_X_COUNT+gridX]+=1;
+										}
+										if (gridY<REGION_Y_COUNT-1) {
+											changes[(gridY+1)*REGION_X_COUNT+gridX]+=1;
+										}
+										if (gridX>0) {
+											changes[(gridY)*REGION_X_COUNT+(gridX-1)]+=1;
+										}
+										if (gridX<REGION_Y_COUNT-1) {
+											changes[(gridY)*REGION_X_COUNT+(gridX+1)]+=1;
+										}
+										if (changes[gridY*REGION_X_COUNT+gridX]>=CHANGE_THRESHOLD) {
+											performSubimageUpdate(in, clientOutput, newCapture, gridX, gridY);
+										}
+									}
+								}
+							}		
 						}
-						stream.close();
-						for (int i=0;i<10;i++) {
-							clientOutput.writeChar('-');
+						if (fullCleanup) {
+							LAST_CLEANUP=System.currentTimeMillis();
 						}
-						System.out.println("Frame "+frame+++" processed. Waiting on client.");
-						while (!in.ready()) {
-						}
-						System.out.println("Client no longer idle.");
-						in.readLine();
 					}
 				} catch (IOException e) {
 					e.printStackTrace();
@@ -109,56 +168,106 @@ public class SigShare {
 					String line;
 					if (in.available()>0) {
 					line=in.readLine();
-					 System.out.println(line);
-					 if (line.contains("DESKTOP")) {
-						 String[] split = line.split(Pattern.quote(" "));
-						 
-						SCREEN_WIDTH=Integer.parseInt(split[1]);
-						SCREEN_HEIGHT=Integer.parseInt(split[2]);
-						p.init(SCREEN_WIDTH,SCREEN_HEIGHT);
-						
-						f.add(p);
-						f.setSize(SCREEN_WIDTH,SCREEN_HEIGHT);
-						f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-						f.setVisible(true);
+						System.out.println(line);
+						if (line.contains("DESKTOP")) {
+							String[] split = line.split(Pattern.quote(" "));
+							
+							SCREEN_WIDTH=Integer.parseInt(split[1]);
+							SCREEN_HEIGHT=Integer.parseInt(split[2]);
+							p.init(SCREEN_WIDTH,SCREEN_HEIGHT);
+							
+							f.add(p);
+							f.setSize(SCREEN_WIDTH,SCREEN_HEIGHT);
+							f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+							f.setVisible(true);
 
-						int frame=0;
-						int dashCount=0;
-						BufferedOutputStream stream = null;
-						while (true)
-						{
-							while (in.available()>0) {
-								if (stream==null) {
-									//System.out.println("Stream opened.");
-									stream=new BufferedOutputStream(new FileOutputStream(new File("screenshot_out.jpg"),true));
+							int frame=0;
+							int dashCount=0;
+							BufferedOutputStream stream = null;
+							while (true) {
+								while (in.available()>0) {
+									if (stream==null) {
+										//System.out.println("Stream opened.");
+										stream=new BufferedOutputStream(new FileOutputStream(new File("screenshot_out.jpg"),true));
+									}
+									int val = in.read();
+									stream.write(val);
+									//System.out.print((char)val);
+									if (val=='-') {
+										dashCount++;
+									} else 
+									if (val!=0) {
+										dashCount=0;
+									}
 								}
-								int val = in.read();
-								stream.write(val);
-								if (val=='-') {
-									dashCount++;
-								} else 
-								if (val!=0) {
+								if (dashCount>=10) {
+									stream.close();
+									stream=null;
 									dashCount=0;
+									System.out.println("Frame "+frame+++" processed.");
+									BufferedImage i = ImageIO.read(new File("screenshot_out.jpg"));
+									if (i!=null) {
+										for (int y=0;y<i.getHeight();y++) {
+											for (int x=0;x<i.getWidth();x++) {
+												Panel.pixel[y*SCREEN_WIDTH+x]=i.getRGB(x,y);
+											}
+										}
+									}
+									out.writeChars("Done\r\n");
+									stream=new BufferedOutputStream(new FileOutputStream(new File("screenshot_out.jpg"),false));
+									break;
 								}
 							}
-							if (dashCount>=10) {
-								stream.close();
-								stream=null;
-								dashCount=0;
-								System.out.println("Frame "+frame+++" processed.");
-								BufferedImage i = ImageIO.read(new File("screenshot_out.jpg"));
-								if (i!=null) {
-									for (int y=0;y<i.getHeight();y++) {
-										for (int x=0;x<i.getWidth();x++) {
-											Panel.pixel[y*SCREEN_WIDTH+x]=i.getRGB(x,y);
+
+							int regionInfo = -1;
+							System.out.println("Waiting for region data...");
+							while (true) {
+								//System.out.println("Waiting for region data...");
+								while (in.available()>0) {
+									if (regionInfo==-1) {
+										regionInfo=in.read();
+									} else {
+										while (in.available()>0) {
+											if (stream==null) {
+												//System.out.println("Stream opened.");
+												stream=new BufferedOutputStream(new FileOutputStream(new File("screenshot_out.jpg"),true));
+											}
+											int val = in.read();
+											stream.write(val);
+											if (val=='-') {
+												dashCount++;
+											} else 
+											if (val!=0) {
+												dashCount=0;
+											}
+										}
+										if (dashCount>=10) {
+											stream.close();
+											stream=null;
+											dashCount=0;
+											System.out.println("Frame "+frame+++" processed.");
+											BufferedImage i = ImageIO.read(new File("screenshot_out.jpg"));
+											if (i!=null) {
+												int yy=0;
+												for (int y=(regionInfo/REGION_X_COUNT)*REGION_HEIGHT;y<(regionInfo/REGION_X_COUNT)*REGION_HEIGHT+REGION_HEIGHT;y++) {
+													int xx=0;
+													for (int x=(regionInfo%REGION_X_COUNT)*REGION_WIDTH;x<(regionInfo%REGION_X_COUNT)*REGION_WIDTH+REGION_WIDTH;x++) {
+														Panel.pixel[y*SCREEN_WIDTH+x]=i.getRGB(xx,yy);
+														xx++;
+													}
+													yy++;
+												}
+											}
+											System.out.println("Region ("+(regionInfo%REGION_X_COUNT)+","+(regionInfo/REGION_X_COUNT)+") updated.");
+											System.out.println("Waiting for region data...");
+											regionInfo=-1;
+											out.writeChars("Done\r\n");
+											stream=new BufferedOutputStream(new FileOutputStream(new File("screenshot_out.jpg"),false));
 										}
 									}
 								}
-								out.writeChars("Done\r\n");
-								stream=new BufferedOutputStream(new FileOutputStream(new File("screenshot_out.jpg"),false));
 							}
 						}
-					 }
 					}
 				}
 			} catch (IOException e) {
@@ -169,9 +278,32 @@ public class SigShare {
 			return;
 		}
 	}
-	private static void CaptureScreen(int w, int h) throws IOException {
+	private static void performSubimageUpdate(BufferedReader in, DataOutputStream clientOutput, BufferedImage newCapture, int gridX,
+			int gridY) throws IOException, FileNotFoundException {
+		FileInputStream stream;
+		changes[gridY*REGION_X_COUNT+gridX]=0;
+		GetSubimage(newCapture, gridX*REGION_WIDTH, gridY*REGION_HEIGHT, REGION_WIDTH, REGION_HEIGHT);
+		System.out.println("Preparing to send region("+gridX+","+gridY+").");
+		stream = new FileInputStream(new File("screenshot_part.jpg"));
+		clientOutput.writeByte(gridY*REGION_X_COUNT+gridX);
+		while (stream.available()>0) {
+			clientOutput.writeByte(stream.read());
+		}
+		stream.close();
+		for (int i=0;i<10;i++) {
+			clientOutput.writeChar('-');
+		}
+		System.out.println("Region sent, waiting for reply.");
+		while (!in.ready());
+		in.readLine();
+		System.out.println("Client no longer idle.");
+		REGION_CHECK.put((char)(gridY*REGION_X_COUNT+gridX),true);
+		/*x=(x/REGION_WIDTH)*REGION_WIDTH+REGION_WIDTH;
+		y=(y/REGION_HEIGHT)*REGION_HEIGHT+REGION_HEIGHT;*/
+	}
+	private static BufferedImage CaptureScreen(int w, int h) throws IOException {
 		//BufferedImage screenshot = toBufferedImage(r.createScreenCapture(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds()).getScaledInstance(w, h, Image.SCALE_DEFAULT));
-		
+		BufferedImage screenshot;
 		ImageOutputStream  ios =  ImageIO.createImageOutputStream(new File("screenshot.jpg"));
 		Iterator<ImageWriter> iter = ImageIO.getImageWritersByFormatName("jpeg");
 		ImageWriter writer = iter.next();
@@ -179,10 +311,15 @@ public class SigShare {
 		iwp.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
 		iwp.setCompressionQuality(0.8f);
 		writer.setOutput(ios);
-		writer.write(null, new IIOImage(resizeImage(r.createScreenCapture(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds()),w,h),null,null),iwp);
+		writer.write(null, new IIOImage(screenshot=resizeImage(r.createScreenCapture(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds()),w,h),null,null),iwp);
 		writer.dispose();
 	
-		//return screenshot;
+		return screenshot;
+	}
+	private static BufferedImage GetSubimage(BufferedImage screenshot, int x, int y, int w, int h) throws IOException {
+		BufferedImage newimg = screenshot.getSubimage(x, y, w, h);
+		ImageIO.write(newimg,"jpeg",new File("screenshot_part.jpg"));
+		return newimg;
 	}
 	static BufferedImage resizeImage(BufferedImage originalImage, int targetWidth, int targetHeight) throws IOException {
 		Image resultingImage = originalImage.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
