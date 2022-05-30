@@ -199,6 +199,9 @@ public class SigShare {
 							
 							SCREEN_WIDTH=Integer.parseInt(split[1]);
 							SCREEN_HEIGHT=Integer.parseInt(split[2]);
+							img = new int[SCREEN_WIDTH*SCREEN_HEIGHT]; //Store the number of changes in the last 8 bits of ints. Use 2 ints per section, meaning an 8x8 section uses 128 integers to store 64 values.
+							REGION_WIDTH = SCREEN_WIDTH/REGION_X_COUNT;
+							REGION_HEIGHT = SCREEN_HEIGHT/REGION_Y_COUNT;
 							p.init(SCREEN_WIDTH,SCREEN_HEIGHT);
 							
 							f.add(p);
