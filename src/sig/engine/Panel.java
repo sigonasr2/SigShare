@@ -4,6 +4,8 @@ import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Toolkit;
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
 import java.awt.image.ColorModel;
 import java.awt.image.MemoryImageSource;
 import java.util.ArrayList;
@@ -37,6 +39,33 @@ public class Panel extends JPanel implements Runnable {
         super(true);
 		this.window=f;
         thread = new Thread(this, "MyPanel Thread");
+		this.addComponentListener(new ComponentListener() {
+
+			@Override
+			public void componentHidden(ComponentEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+
+			@Override
+			public void componentMoved(ComponentEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+
+			@Override
+			public void componentResized(ComponentEvent e) {
+				System.out.println("Resized");
+				
+			}
+
+			@Override
+			public void componentShown(ComponentEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+			
+		});
     }
 
     /**
