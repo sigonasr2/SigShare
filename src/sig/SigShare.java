@@ -314,7 +314,9 @@ public class SigShare {
 												for (int y=(regionInfo/REGION_X_COUNT)*REGION_HEIGHT;y<(regionInfo/REGION_X_COUNT)*REGION_HEIGHT+REGION_HEIGHT;y++) {
 													int xx=0;
 													for (int x=(regionInfo%REGION_X_COUNT)*REGION_WIDTH;x<(regionInfo%REGION_X_COUNT)*REGION_WIDTH+REGION_WIDTH;x++) {
-														Panel.pixel[y*SCREEN_WIDTH+x]=i.getRGB(xx,yy);
+														if (xx<i.getWidth()&&yy<i.getHeight()) {
+															Panel.pixel[y*SCREEN_WIDTH+x]=i.getRGB(xx,yy);
+														}
 														xx++;
 													}
 													yy++;
