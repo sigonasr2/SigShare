@@ -69,7 +69,7 @@ public class SigShare {
 					}*/
 					int frame=0;
 					while (true) {
-						CaptureScreen();
+						CaptureScreen(SCREEN_WIDTH,SCREEN_HEIGHT);
 						FileInputStream stream = new FileInputStream(new File("screenshot.jpg"));
 						while (stream.available()>0) {
 							clientOutput.writeByte(stream.read());
@@ -124,12 +124,12 @@ public class SigShare {
 
 						int frame=0;
 						int dashCount=0;
+						BufferedOutputStream stream = null;
 						while (true)
 						{
-							BufferedOutputStream stream = null;
 							while (in.available()>0) {
 								if (stream==null) {
-									System.out.println("Stream opened.");
+									//System.out.println("Stream opened.");
 									stream=new BufferedOutputStream(new FileOutputStream(new File("screenshot_out.jpg")));
 								}
 								int val = in.read();
@@ -145,8 +145,16 @@ public class SigShare {
 								stream.close();
 								stream=null;
 								dashCount=0;
-								out.writeChars("Done\r\n");
 								System.out.println("Frame "+frame+++" processed.");
+								BufferedImage i = ImageIO.read(new File("screenshot_out.jpg"));
+								if (i!=null) {
+									for (int y=0;y<i.getHeight();y++) {
+										for (int x=0;x<i.getWidth();x++) {
+											Panel.pixel[y*SCREEN_WIDTH+x]=i.getRGB(x,y);
+										}
+									}
+								}
+								out.writeChars("Done\r\n");
 							}
 						}
 					 }
@@ -160,7 +168,7 @@ public class SigShare {
 			return;
 		}
 	}
-	private static void CaptureScreen() throws IOException {
+	private static void CaptureScreen(int w, int h) throws IOException {
 		//BufferedImage screenshot = toBufferedImage(r.createScreenCapture(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds()).getScaledInstance(w, h, Image.SCALE_DEFAULT));
 		
 		ImageOutputStream  ios =  ImageIO.createImageOutputStream(new File("screenshot.jpg"));
@@ -168,12 +176,18 @@ public class SigShare {
 		ImageWriter writer = iter.next();
 		ImageWriteParam iwp = writer.getDefaultWriteParam();
 		iwp.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-		iwp.setCompressionQuality(0.9f);
+		iwp.setCompressionQuality(0.3f);
 		writer.setOutput(ios);
-		writer.write(null, new IIOImage(r.createScreenCapture(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds()),null,null),iwp);
+		writer.write(null, new IIOImage(resizeImage(r.createScreenCapture(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds()),w,h),null,null),iwp);
 		writer.dispose();
 	
 		//return screenshot;
+	}
+	static BufferedImage resizeImage(BufferedImage originalImage, int targetWidth, int targetHeight) throws IOException {
+		Image resultingImage = originalImage.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
+		BufferedImage outputImage = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_RGB);
+		outputImage.getGraphics().drawImage(resultingImage, 0, 0, null);
+		return outputImage;
 	}
 	public static BufferedImage toBufferedImage(Image img)
 {
