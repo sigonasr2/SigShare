@@ -114,9 +114,6 @@ public class SigShare {
 								} else
 								if (currentPixel!=newPixel) {
 									img[y*newCapture.getWidth()+x]=newPixel;
-									if (gridY*REGION_X_COUNT+gridX>=changes.length) {
-										System.out.println(gridY+"/"+REGION_X_COUNT+"/"+gridX+"  "+x+","+y);
-									}
 									//System.out.println("Changes ("+gridX+","+gridY+"): "+changes[gridY*REGION_X_COUNT+gridX]);
 									if (!REGION_CHECK.containsKey((char)(gridY*REGION_X_COUNT+gridX))) {
 										changes[gridY*REGION_X_COUNT+gridX]+=2;
@@ -258,8 +255,8 @@ public class SigShare {
 													yy++;
 												}
 											}
-											System.out.println("Region ("+(regionInfo%REGION_X_COUNT)+","+(regionInfo/REGION_X_COUNT)+") updated.");
-											System.out.println("Waiting for region data...");
+											//System.out.println("Region ("+(regionInfo%REGION_X_COUNT)+","+(regionInfo/REGION_X_COUNT)+") updated.");
+											//System.out.println("Waiting for region data...");
 											regionInfo=-1;
 											out.writeChars("Done\r\n");
 											stream=new BufferedOutputStream(new FileOutputStream(new File("screenshot_out.jpg"),false));
@@ -283,7 +280,7 @@ public class SigShare {
 		FileInputStream stream;
 		changes[gridY*REGION_X_COUNT+gridX]=0;
 		GetSubimage(newCapture, gridX*REGION_WIDTH, gridY*REGION_HEIGHT, REGION_WIDTH, REGION_HEIGHT);
-		System.out.println("Preparing to send region("+gridX+","+gridY+").");
+		//System.out.println("Preparing to send region("+gridX+","+gridY+").");
 		stream = new FileInputStream(new File("screenshot_part.jpg"));
 		clientOutput.writeByte(gridY*REGION_X_COUNT+gridX);
 		while (stream.available()>0) {
@@ -293,10 +290,10 @@ public class SigShare {
 		for (int i=0;i<10;i++) {
 			clientOutput.writeChar('-');
 		}
-		System.out.println("Region sent, waiting for reply.");
+		//System.out.println("Region sent, waiting for reply.");
 		while (!in.ready());
 		in.readLine();
-		System.out.println("Client no longer idle.");
+		//System.out.println("Client no longer idle.");
 		REGION_CHECK.put((char)(gridY*REGION_X_COUNT+gridX),true);
 		/*x=(x/REGION_WIDTH)*REGION_WIDTH+REGION_WIDTH;
 		y=(y/REGION_HEIGHT)*REGION_HEIGHT+REGION_HEIGHT;*/
