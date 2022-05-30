@@ -35,12 +35,12 @@ public class SigShare {
 	static Robot r;
 	public static final String PROGRAM_NAME="SigShare";
 	public static double SCREEN_MULT=2;
-	public static int REGION_X_COUNT = 8;
-	public static int REGION_Y_COUNT = 8;
+	public static int REGION_X_COUNT = 12;
+	public static int REGION_Y_COUNT = 12;
 	public static int SCREEN_WIDTH=((int)(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().getWidth()/SCREEN_MULT)/REGION_X_COUNT)*REGION_X_COUNT;
 	public static int SCREEN_HEIGHT=((int)(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().getHeight()/SCREEN_MULT)/REGION_Y_COUNT)*REGION_Y_COUNT;
 	public static int[] img = new int[SCREEN_WIDTH*SCREEN_HEIGHT]; //Store the number of changes in the last 8 bits of ints. Use 2 ints per section, meaning an 8x8 section uses 128 integers to store 64 values.
-	public static int CHANGE_THRESHOLD = 1000;
+	public static int CHANGE_THRESHOLD = 500;
 	public static char[] changes = new char[REGION_X_COUNT*REGION_Y_COUNT];
 	public static int REGION_WIDTH = SCREEN_WIDTH/REGION_X_COUNT;
 	public static int REGION_HEIGHT = SCREEN_HEIGHT/REGION_Y_COUNT;
