@@ -45,7 +45,7 @@ public class SigShare {
 	public static int REGION_WIDTH = SCREEN_WIDTH/REGION_X_COUNT;
 	public static int REGION_HEIGHT = SCREEN_HEIGHT/REGION_Y_COUNT;
 	public static long LAST_CLEANUP = System.currentTimeMillis();
-	public static int CLEANUP_FREQUENCY = 2000;
+	public static int CLEANUP_FREQUENCY = 5000;
 	public static HashMap<Character,Boolean> REGION_CHECK = new HashMap<>();
 	public static void main(String[] args) throws AWTException {
 		r = new Robot();
@@ -97,47 +97,63 @@ public class SigShare {
 					in.readLine();
 					System.out.println("Begin diff analysis mode.");
 					while (true) {
-						boolean fullCleanup=false;
 						BufferedImage newCapture = CaptureScreen(SCREEN_WIDTH,SCREEN_HEIGHT);
 						REGION_CHECK.clear();
-						for (int y=0;y<newCapture.getHeight();y++) {
-							for (int x=0;x<newCapture.getWidth();x++) {
-								int currentPixel = img[y*newCapture.getWidth()+x];
-								int newPixel = newCapture.getRGB(x, y)&0x00FFFFFF;
-								int gridX = x/REGION_WIDTH;
-								int gridY = y/REGION_HEIGHT;
-								if (System.currentTimeMillis()-CLEANUP_FREQUENCY>=5000) {
-									if (!REGION_CHECK.containsKey((char)(gridY*REGION_X_COUNT+gridX))) {
-										performSubimageUpdate(in, clientOutput, newCapture, gridX, gridY);
-									}
-									fullCleanup=true;
-								} else
-								if (currentPixel!=newPixel) {
-									img[y*newCapture.getWidth()+x]=newPixel;
-									//System.out.println("Changes ("+gridX+","+gridY+"): "+changes[gridY*REGION_X_COUNT+gridX]);
-									if (!REGION_CHECK.containsKey((char)(gridY*REGION_X_COUNT+gridX))) {
-										changes[gridY*REGION_X_COUNT+gridX]+=2;
-										if (gridY>0) {
-											changes[(gridY-1)*REGION_X_COUNT+gridX]+=1;
-										}
-										if (gridY<REGION_Y_COUNT-1) {
-											changes[(gridY+1)*REGION_X_COUNT+gridX]+=1;
-										}
-										if (gridX>0) {
-											changes[(gridY)*REGION_X_COUNT+(gridX-1)]+=1;
-										}
-										if (gridX<REGION_Y_COUNT-1) {
-											changes[(gridY)*REGION_X_COUNT+(gridX+1)]+=1;
-										}
-										if (changes[gridY*REGION_X_COUNT+gridX]>=CHANGE_THRESHOLD) {
-											performSubimageUpdate(in, clientOutput, newCapture, gridX, gridY);
-										}
-									}
+							if (System.currentTimeMillis()-LAST_CLEANUP>=CLEANUP_FREQUENCY) {
+								System.out.println("New full refresh");
+								CaptureScreen(SCREEN_WIDTH,SCREEN_HEIGHT);
+								clientOutput.write(255);
+								stream = new FileInputStream(new File("screenshot.jpg"));
+								while (stream.available()>0) {
+									clientOutput.writeByte(stream.read());
 								}
-							}		
-						}
-						if (fullCleanup) {
-							LAST_CLEANUP=System.currentTimeMillis();
+								stream.close();
+								image = ImageIO.read(new File("screenshot.jpg"));
+								for (int y=0;y<image.getHeight();y++) {
+									for (int x=0;x<image.getWidth();x++) {
+										img[y*image.getWidth()+x]=image.getRGB(x, y)&0x00FFFFFF;
+									}		
+								}
+								for (int i=0;i<10;i++) {
+									clientOutput.writeChar('-');
+								}
+								System.out.println("Frame "+frame+++" processed. Waiting on client.");
+								while (!in.ready()) {
+								}
+								System.out.println("Client no longer idle.");
+								in.readLine();
+								LAST_CLEANUP=System.currentTimeMillis();
+							} else {
+							for (int y=0;y<newCapture.getHeight();y++) {
+								for (int x=0;x<newCapture.getWidth();x++) {
+									int currentPixel = img[y*newCapture.getWidth()+x];
+									int newPixel = newCapture.getRGB(x, y)&0x00FFFFFF;
+									int gridX = x/REGION_WIDTH;
+									int gridY = y/REGION_HEIGHT;
+									if (currentPixel!=newPixel) {
+										img[y*newCapture.getWidth()+x]=newPixel;
+										//System.out.println("Changes ("+gridX+","+gridY+"): "+changes[gridY*REGION_X_COUNT+gridX]);
+										if (!REGION_CHECK.containsKey((char)(gridY*REGION_X_COUNT+gridX))) {
+											changes[gridY*REGION_X_COUNT+gridX]+=2;
+											if (gridY>0) {
+												changes[(gridY-1)*REGION_X_COUNT+gridX]+=1;
+											}
+											if (gridY<REGION_Y_COUNT-1) {
+												changes[(gridY+1)*REGION_X_COUNT+gridX]+=1;
+											}
+											if (gridX>0) {
+												changes[(gridY)*REGION_X_COUNT+(gridX-1)]+=1;
+											}
+											if (gridX<REGION_Y_COUNT-1) {
+												changes[(gridY)*REGION_X_COUNT+(gridX+1)]+=1;
+											}
+											if (changes[gridY*REGION_X_COUNT+gridX]>=CHANGE_THRESHOLD) {
+												performSubimageUpdate(in, clientOutput, newCapture, gridX, gridY);
+											}
+										}
+									}
+								}		
+							}
 						}
 					}
 				} catch (IOException e) {
@@ -223,6 +239,43 @@ public class SigShare {
 								while (in.available()>0) {
 									if (regionInfo==-1) {
 										regionInfo=in.read();
+										if (regionInfo==255) {
+											System.out.println("Full refresh received.");
+											while (true) {
+												while (in.available()>0) {
+													if (stream==null) {
+														//System.out.println("Stream opened.");
+														stream=new BufferedOutputStream(new FileOutputStream(new File("screenshot_out.jpg"),true));
+													}
+													int val = in.read();
+													stream.write(val);
+													//System.out.print((char)val);
+													if (val=='-') {
+														dashCount++;
+													} else 
+													if (val!=0) {
+														dashCount=0;
+													}
+												}
+												if (dashCount>=10) {
+													stream.close();
+													stream=null;
+													dashCount=0;
+													System.out.println("Frame "+frame+++" processed.");
+													BufferedImage i = ImageIO.read(new File("screenshot_out.jpg"));
+													if (i!=null) {
+														for (int y=0;y<i.getHeight();y++) {
+															for (int x=0;x<i.getWidth();x++) {
+																Panel.pixel[y*SCREEN_WIDTH+x]=i.getRGB(x,y);
+															}
+														}
+													}
+													out.writeChars("Done\r\n");
+													stream=new BufferedOutputStream(new FileOutputStream(new File("screenshot_out.jpg"),false));
+													break;
+												}
+											}
+										}
 									} else {
 										while (in.available()>0) {
 											if (stream==null) {
