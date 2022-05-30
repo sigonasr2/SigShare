@@ -1,18 +1,28 @@
 package sig;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Arrays;
+import java.util.Iterator;
 import java.util.regex.Pattern;
 
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 import javax.swing.JFrame;
 import java.awt.Toolkit;
 import sig.engine.Panel;
@@ -36,18 +46,17 @@ public class SigShare {
 				System.out.println("Listening on port 4191.");
 				try (Socket client = socket.accept()) {
 					System.out.println("New client connection detected: "+client.toString());
+					System.out.println("Taking screenshot...");
 					System.out.println("Sending initial data...");
 					BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream(),"ISO-8859-1"));
 					DataOutputStream clientOutput = new DataOutputStream(client.getOutputStream());
 					double SCREEN_MULT=2;
 					int SCREEN_WIDTH=(int)(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().getWidth()/SCREEN_MULT);
 					int SCREEN_HEIGHT=(int)(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().getHeight()/SCREEN_MULT);
-					int[] pixels = new int[SCREEN_WIDTH*SCREEN_HEIGHT];
 					clientOutput.write(("DESKTOP "+SCREEN_WIDTH+" "+SCREEN_HEIGHT+"\r\n").getBytes());
 					System.out.println("Send initial screen");
 					//char[] screen = new char[SCREEN_WIDTH*SCREEN_HEIGHT];
-					BufferedImage screenshot = CaptureScreen(SCREEN_WIDTH,SCREEN_HEIGHT);
-					for (int y=0;y<SCREEN_HEIGHT;y++) {
+					/*for (int y=0;y<SCREEN_HEIGHT;y++) {
 						for (int x=0;x<SCREEN_WIDTH;x++) {
 							int col = pixels[y*SCREEN_WIDTH+x] = screenshot.getRGB(x, y);
 							int r = ((col&0x00FF0000)>>>16)/8;
@@ -57,34 +66,23 @@ public class SigShare {
 							clientOutput.writeChar(compressedCol);
 							//screen[y*SCREEN_WIDTH+x]=compressedCol;
 						}	
-					}
-					System.out.println("Begin diff monitoring...");
+					}*/
 					int frame=0;
 					while (true) {
-						screenshot = CaptureScreen(SCREEN_WIDTH,SCREEN_HEIGHT);
-						for (int y=0;y<SCREEN_HEIGHT;y++) {
-							for (int x=0;x<SCREEN_WIDTH;x++) {
-								int col = screenshot.getRGB(x, y);
-								byte b1=0,b2=0,b3=0;
-								if (col!=pixels[y*SCREEN_WIDTH+x]) {
-									b1=(byte)(x&0xFF); //bits 1-8 for x
-									b2=(byte)(((x&0xF00)>>>8)+((y&0xF)<<4)); //bits 9-12 for x, bits 1-4 for y
-									b3=(byte)((y>>>4)&0xFF);//bits 5-12 for y
-									pixels[y*SCREEN_WIDTH+x]=col;
-									int r = ((col&0x00FF0000)>>>16)/8;
-									int g = ((col&0x0000FF00)>>>8)/8;
-									int b = ((col&0x000000FF))/8;
-									char compressedCol=(char)((r<<10)+(g<<5)+b);
-									clientOutput.writeChar(compressedCol);
-									clientOutput.writeByte(b1);
-									clientOutput.writeByte(b2);
-									clientOutput.writeByte(b3);
-									System.out.println("  Pixel ("+x+","+y+") "+b1+"/"+(b2&0xF)+"/"+((b2&0xF0)>>>4)+"/"+b3+" sent");
-								}
-								//screen[y*SCREEN_WIDTH+x]=compressedCol;
-							}	
+						CaptureScreen();
+						FileInputStream stream = new FileInputStream(new File("screenshot.jpg"));
+						while (stream.available()>0) {
+							clientOutput.writeByte(stream.read());
 						}
-						System.out.println("Frame "+frame+++" processed");
+						stream.close();
+						for (int i=0;i<10;i++) {
+							clientOutput.writeChar('-');
+						}
+						System.out.println("Frame "+frame+++" processed. Waiting on client.");
+						while (!in.ready()) {
+						}
+						System.out.println("Client no longer idle.");
+						in.readLine();
 					}
 				} catch (IOException e) {
 					e.printStackTrace();
@@ -95,7 +93,7 @@ public class SigShare {
 		} else 
 		if (args.length==2&&args[1].equalsIgnoreCase("client")) {
 			Socket socket;
-			PrintWriter out;
+			DataOutputStream out;
 			DataInputStream in;
 			
 			JFrame f = new JFrame(PROGRAM_NAME);
@@ -103,7 +101,7 @@ public class SigShare {
 
 			try {
 				socket = new Socket(args[0],4191);
-				out = new PrintWriter(socket.getOutputStream(),true);
+				out = new DataOutputStream(socket.getOutputStream());
 				in=new DataInputStream(socket.getInputStream());
 				
 			
@@ -111,7 +109,7 @@ public class SigShare {
 					String line;
 					if (in.available()>0) {
 					line=in.readLine();
-					 //System.out.println(line);
+					 System.out.println(line);
 					 if (line.contains("DESKTOP")) {
 						 String[] split = line.split(Pattern.quote(" "));
 						 
@@ -124,34 +122,31 @@ public class SigShare {
 						f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 						f.setVisible(true);
 
-						int expectedChars = SCREEN_WIDTH*SCREEN_HEIGHT;
-						System.out.println("Expecting "+(expectedChars)+" of data.");
-						int arrayIndex = 0;
-						while (expectedChars>0) {
-							if (in.available()>0) {
-								char col = in.readChar();
-								int convert = ((((col&0b0111110000000000)>>>10)*8)<<16)+
-								((((col&0b0000001111100000)*8)>>>5)<<8)+
-								((((col&0b0000000000011111))*8));
-								Panel.pixel[arrayIndex++]=convert;
-								//System.out.println("Received "+col+" / "+convert);
-								expectedChars--;
-							}
-						}
-						p.render();
-						System.out.println("Initial image processed!");
 						int frame=0;
-						while (true) {
-							if (in.available()>0) {
-								char col = in.readChar();
-								int convert = ((((col&0b0111110000000000)>>>10)*8)<<16)+
-								((((col&0b0000001111100000)*8)>>>5)<<8)+
-								((((col&0b0000000000011111))*8));
-								int b1=in.readUnsignedByte()&0xff,b2=in.readUnsignedByte()&0xff,b3=in.readUnsignedByte()&0xff;
-								int x = b1+((b2&0xF)<<8);
-								int y = (b3<<4)+((b2&0xF0)>>>4);
-								System.out.println("  Pixel "+frame+++" ("+x+","+y+") "+b1+"/"+(b2&0xF)+"/"+((b2&0xF0)>>>4)+"/"+b3+" processed");
-								Panel.pixel[y*SCREEN_WIDTH+x]=convert;
+						int dashCount=0;
+						while (true)
+						{
+							BufferedOutputStream stream = null;
+							while (in.available()>0) {
+								if (stream==null) {
+									System.out.println("Stream opened.");
+									stream=new BufferedOutputStream(new FileOutputStream(new File("screenshot_out.jpg")));
+								}
+								int val = in.read();
+								stream.write(val);
+								if (val=='-') {
+									dashCount++;
+								} else 
+								if (val!=0) {
+									dashCount=0;
+								}
+							}
+							if (dashCount>=10&&stream!=null) {
+								stream.close();
+								stream=null;
+								dashCount=0;
+								out.writeChars("Done\r\n");
+								System.out.println("Frame "+frame+++" processed.");
 							}
 						}
 					 }
@@ -165,10 +160,20 @@ public class SigShare {
 			return;
 		}
 	}
-	private static BufferedImage CaptureScreen(int w,int h) throws IOException {
-		BufferedImage screenshot = toBufferedImage(r.createScreenCapture(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds()).getScaledInstance(w, h, Image.SCALE_DEFAULT));
-		ImageIO.write(screenshot,"jpg",new File("/home/niconiconii/screenshot.jpg"));
-		return screenshot;
+	private static void CaptureScreen() throws IOException {
+		//BufferedImage screenshot = toBufferedImage(r.createScreenCapture(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds()).getScaledInstance(w, h, Image.SCALE_DEFAULT));
+		
+		ImageOutputStream  ios =  ImageIO.createImageOutputStream(new File("screenshot.jpg"));
+		Iterator<ImageWriter> iter = ImageIO.getImageWritersByFormatName("jpeg");
+		ImageWriter writer = iter.next();
+		ImageWriteParam iwp = writer.getDefaultWriteParam();
+		iwp.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+		iwp.setCompressionQuality(0.9f);
+		writer.setOutput(ios);
+		writer.write(null, new IIOImage(r.createScreenCapture(GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds()),null,null),iwp);
+		writer.dispose();
+	
+		//return screenshot;
 	}
 	public static BufferedImage toBufferedImage(Image img)
 {
