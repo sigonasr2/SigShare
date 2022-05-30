@@ -106,8 +106,10 @@ public class Panel extends JPanel implements Runnable {
         render();
         // ask ImageProducer to update image
         mImageProducer.newPixels();  
-        // draw it on panel          
-        g.drawImage(this.imageBuffer.getScaledInstance(getWidth(), getHeight(), Image.SCALE_FAST), 0, 0, this);  
+        // draw it on panel     
+		Image f = this.imageBuffer.getScaledInstance(getWidth(), getHeight(), Image.SCALE_FAST);     
+        g.drawImage(f, 0, 0, this);  
+		f.flush();
 		
 		
 		if (window!=null&&System.currentTimeMillis()-lastSecond>=1000) {

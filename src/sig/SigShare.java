@@ -130,7 +130,7 @@ public class SigShare {
 							while (in.available()>0) {
 								if (stream==null) {
 									//System.out.println("Stream opened.");
-									stream=new BufferedOutputStream(new FileOutputStream(new File("screenshot_out.jpg")));
+									stream=new BufferedOutputStream(new FileOutputStream(new File("screenshot_out.jpg"),true));
 								}
 								int val = in.read();
 								stream.write(val);
@@ -141,7 +141,7 @@ public class SigShare {
 									dashCount=0;
 								}
 							}
-							if (dashCount>=10&&stream!=null) {
+							if (dashCount>=10) {
 								stream.close();
 								stream=null;
 								dashCount=0;
@@ -155,6 +155,7 @@ public class SigShare {
 									}
 								}
 								out.writeChars("Done\r\n");
+								stream=new BufferedOutputStream(new FileOutputStream(new File("screenshot_out.jpg"),false));
 							}
 						}
 					 }
